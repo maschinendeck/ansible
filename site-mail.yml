@@ -1,0 +1,31 @@
+#!/usr/bin/ansible-playbook
+---
+- hosts: mail
+  roles:
+    - role: dovecot
+      tags:
+        - 'mail'
+        - 'dovecot'
+    - role: rspamd
+      tags:
+        - 'mail'
+        - 'rspamd'
+    - role: postfix
+      tags:
+        - 'mail'
+        - 'postfix'
+- hosts: mailman
+  roles:
+    - role: mailman
+      tags:
+        - mail
+        - mailman
+    - role: web_server
+      tags:
+        - mailman
+        - web
+
+- hosts: postfix_satellite
+  roles:
+    - postfix_satellite
+

@@ -1,0 +1,48 @@
+{% for d in item.domains %}
+  {% if loop.first %}ServerName{% else %}ServerAlias{% endif %} {{ d }}
+{% endfor %}
+  ServerAdmin {{ admin_mail }}
+
+{% if item.httpsonly | default(False) %}
+ Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+{% endif %}
+{% if (item.httpsonly | default(False)) and (not (is_https | default(False))) %}
+  
+  RewriteEngine On
+  RewriteCond "%{REQUEST_URI}" "!^/\.well-known/acme-challenge/.*"
+  RewriteRule ^/(.*) https://{{ item.domains[0] }}/$1
+{% else %}
+
+  DocumentRoot {{ item.root }}
+  <Directory {{ item.root }}>
+    Options FollowSymLinks
+    AllowOverride all
+    Require all granted
+    
+{% if item.mode in ['php55','php56','php70'] %}
+    <FilesMatch "\.php$">
+      SetHandler php-fastcgi
+      Action php-fastcgi /fastcgiphp
+      Options +ExecCGI
+    </FilesMatch>
+{% endif %}
+  </Directory>
+{% if item.mode in ['php55','php56','php70'] %}
+  Alias /fastcgiphp /var/www/php-fpm/{{ item.domains.0 }}/fpm.external
+{% endif %}
+{% if item.mode == 'passenger' %}
+  PassengerEnabled on
+{% endif %}
+
+  {{ item.settings | default("") }}
+
+{% endif %}
+
+  Alias /.well-known/acme-challenge /var/www/letsencrypt/.well-known/acme-challenge
+  <Directory /var/www/letsencrypt/.well-known/acme-challenge>
+    Require all granted
+  </Directory>
+  <Location /.well-known/acme-challenge>
+    Require all granted
+  </Location>
+

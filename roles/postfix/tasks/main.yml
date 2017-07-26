@@ -1,0 +1,29 @@
+- apt: name='{{ item }}' state=present
+  with_items:
+    - 'postfix'
+    - 'postfix-ldap'
+    - 'mailutils'
+
+- name: create diffie-hellman parameters
+  command: /usr/bin/openssl dhparam -out /etc/postfix/dh2048.pem 2048 creates='/etc/postfix/dh2048.pem'
+  
+- file: path='/etc/postfix/ldap' owner='root' group='root' mode='0755' state=directory
+
+- template: src='{{ item }}.j2' dest='/etc/postfix/{{ item }}' owner='root' group='root' mode='0644'
+  with_items:
+    - 'main.cf'
+    - 'master.cf'
+  notify: reload postfix
+
+- template: src='{{ item }}.j2' dest='/etc/postfix/{{ item }}' owner='root' group='root' mode='0644'
+  with_items:
+    - 'ldap/virtual_mailbox_domains.cf'
+    - 'ldap/virtual_mailbox_maps.cf'
+    - 'ldap/virtual_alias_maps.cf'
+  notify: reload postfix
+  
+- service: name='postfix' enabled=yes state=started
+
+- meta: flush_handlers
+
+- service: name='postfix' state=started

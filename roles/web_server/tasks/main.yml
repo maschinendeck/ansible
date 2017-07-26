@@ -1,0 +1,137 @@
+- apt: name='{{ item }}' state=present
+  with_items:
+    - apache2
+    - apache2-dev
+    - git
+    - libapache2-mod-passenger
+    - logrotate
+    - xsltproc
+  notify: restart apache
+
+- apt: name='{{ item }}' state=absent
+  with_items:
+    - libapache2-mod-php5
+    - libmysqlclient18
+
+- file: path='/etc/apache2/sites-available' state=directory owner='root' group='root' mode='700'
+
+- file: path='/etc/apache2/sites-enabled' state=directory owner='root' group='root' mode='700'
+
+- apache2_module: name='{{ item }}' state=absent
+  with_items:
+    - userdir
+  notify: restart apache
+    
+- apache2_module: name='{{ item }}' state=present
+  with_items:
+    - actions
+    - headers
+    - passenger
+    - proxy_http
+    - rewrite
+    - ssl
+    - suexec
+  notify: restart apache
+
+- lineinfile: dest='/etc/apache2/mods-enabled/ssl.conf' line='	SSLProtocol all -SSLv3' regexp='SSLProtocol'
+  notify: restart apache
+- lineinfile: dest='/etc/apache2/mods-enabled/ssl.conf' line='	SSLCipherSuite "EECDH+ECDSA+AESGCM EECDH+aRSA+AESGCM EECDH+ECDSA+SHA384 EECDH+ECDSA+SHA256 EECDH+aRSA+SHA384 EECDH+aRSA+SHA256 EECDH+aRSA+RC4 EECDH EDH+aRSA RC4 !aNULL !eNULL !LOW !3DES !MD5 !EXP !PSK !SRP !DSS !RC4"' regexp='SSLCipherSuite'
+  notify: restart apache
+- lineinfile: dest='/etc/apache2/mods-enabled/ssl.conf' line='	SSLHonorCipherOrder on' regexp='SSLHonorCipherOrder'
+  notify: restart apache
+- lineinfile: dest='/etc/apache2/mods-enabled/ssl.conf' line='	SSLUseStapling on' regexp='SSLUseStapling'
+  notify: restart apache
+- lineinfile: dest='/etc/apache2/mods-enabled/ssl.conf' line='	SSLStaplingCache shmcb:${APACHE_RUN_DIR}/ssl_stapling_cache(8192)' regexp='SSLStaplingCache'
+  notify: restart apache
+
+- lineinfile: dest='/etc/apache2/mods-enabled/passenger.conf' line='PassengerEnabled off' state=present
+  notify: restart apache
+  
+- template: src='apache2.conf.j2' dest='/etc/apache2/apache2.conf' owner='root' group='root' mode='644'
+  notify: restart apache
+
+- name: create groups
+  group: name="{{ item.group | default('www-data') }}" system="{{ item.group_system | default('yes') }}" state=present
+  with_items: "{{ web_server }}"
+
+- name: create users
+  user: name="{{ item.user | default('www-data') }}" system="{{ item.user_system | default('yes') }}" createhome=no group="{{ item.group | default('www-data') }}" state=present
+  with_items: "{{ web_server }}"
+  
+- name: create webroots
+  file: path="{{ item.root }}" owner="{{ item.user | default('www-data') }}" group="{{ item.group | default('www-data') }}" mode=0755 state=directory
+  with_items: '{{ web_server }}'
+  
+- name: create directory for generic error vhost
+  file: path='/var/www/default' owner='root' group='root' mode='0755' state=directory
+
+- name: create generic error vhost index page
+  template: src='default-index.html.j2' dest='/var/www/default/index.html' owner='root' group='root' mode='0644'
+
+- name: create http hosts
+  template: src='http.conf.j2' dest='/etc/apache2/sites-enabled/http-{{ item.domains.0 }}.conf' owner='root' group='root' mode='644'
+  with_items: '{{ web_server }}'
+  notify: reload apache
+  register: apache_sites_http_confs
+
+- name: create php-fpm dummy directories
+  file: path='/var/www/php-fpm/{{ item.domains[0] }}' owner='root' group='root' mode='0755' state=directory
+  with_items: '{{ web_server }}'
+  when: "item.mode == 'php70' or item.mode == 'php56' or item.mode == 'php55'"
+  
+#################
+
+- name: reload everything so that letsencrypt webroot method can run
+  meta: flush_handlers
+
+- name: ensure apache is running
+  service: name='apache2' state=started
+
+#################
+
+- set_fact:
+    letsencrypt_items_undefined: "{{ web_server | selectattr('letsencrypt', 'undefined') | list }}"
+    letsencrypt_items_true: "{{ web_server | selectattr('letsencrypt', 'defined') | selectattr('letsencrypt') | list }}"
+
+- set_fact:
+    letsencrypt_hosts: "{{ letsencrypt_items_undefined | union(letsencrypt_items_true) }}"
+
+- include: ../../letsencrypt_common/snippets/webroot.yml
+  vars:
+    letsencrypt_items: "{{ letsencrypt_hosts }}"
+
+
+- name: create https hosts
+  template: src='https.conf.j2' dest='/etc/apache2/sites-enabled/https-{{ item.domains.0 }}.conf' owner='root' group='root' mode='644'
+  with_items: '{{ web_server }}'
+  when: ( item.letsencrypt | default(True) )
+  notify: reload apache
+  register: apache_sites_https_confs
+
+
+
+
+# flatten and map the results into simple list
+# unchanged files have attribute dest, changed have attribute path
+- set_fact:
+    apache_sites_confs: "{{ apache_sites_http_confs.results|selectattr('dest', 'string')|map(attribute='dest')|list + apache_sites_http_confs.results|selectattr('path', 'string')|map(attribute='path')|select|list + apache_sites_https_confs.results|selectattr('dest', 'string')|map(attribute='dest')|list + apache_sites_https_confs.results|selectattr('path', 'string')|map(attribute='path')|select|list }}"
+
+# get contents of conf dir
+- find: paths='/etc/apache2/sites-enabled'
+  register: apache_sites_contents
+  when: apache_sites_confs
+
+# so we can delete the ones we don't manage
+- name: empty unmanaged or old confs
+  file: path="{{ item.path }}" state=absent
+  with_items: "{{ apache_sites_contents.files }}"
+  when: apache_sites_confs and item.path not in apache_sites_confs
+  notify: reload apache
+
+
+  
+- name: reload everything
+  meta: flush_handlers
+
+- name: ensure apache is running
+  service: name='apache2' state=started

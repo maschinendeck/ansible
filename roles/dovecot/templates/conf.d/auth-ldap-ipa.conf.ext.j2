@@ -1,0 +1,25 @@
+# Authentication for LDAP users. Included from 10-auth.conf.
+#
+# <doc/wiki/AuthDatabase.LDAP.txt>
+#
+# Mailboxes are fetched from LDAP cn=mail,cn=accounts,{{ ldap_base }}
+# but authentication is done via master authentication using accounts
+# from cn=users,cn=accounts,{{ ldap_base }}
+
+#auth_master_user_separator = *
+
+#passdb {
+#  driver = ldap
+#  args = /etc/dovecot/dovecot-ldap-ipa-passdb.conf.ext
+#  master = yes
+#}
+
+#passdb {
+#  driver = ldap
+#  args = /etc/dovecot/dovecot-ldap-ipa-passdb.conf.ext
+#}
+
+userdb {
+  driver = ldap
+  args = /etc/dovecot/dovecot-ldap-ipa-userdb.conf.ext
+}

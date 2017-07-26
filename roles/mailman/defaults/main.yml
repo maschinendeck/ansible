@@ -1,0 +1,2 @@
+mailman_dir: /opt/mailman
+mailman_web_dir: /opt/mailman_web

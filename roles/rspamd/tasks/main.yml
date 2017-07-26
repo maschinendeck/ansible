@@ -1,0 +1,42 @@
+- apt_key: url='https://rspamd.com/apt-stable/gpg.key' state=present
+
+- apt_repository: repo='deb http://rspamd.com/apt-stable/ {{ ansible_distribution_release }} main' state=present
+
+- apt_repository: repo='deb-src http://rspamd.com/apt-stable/ {{ ansible_distribution_release }} main' state=present
+
+- apt: name='{{ item }}' state=present
+  with_items:
+    - 'rspamd'
+    - 'rmilter'
+    - 'redis-server'
+    - 'clamav-daemon'
+    - 'clamav-freshclam'
+    - 'spamassassin'
+    
+- template: src='rmilter.conf.local.j2' dest='/etc/rmilter.conf.local' owner='root' group='root' mode='0644'
+  notify: reload rmilter
+
+- template: src='{{ item }}.j2' dest='/etc/rspamd/local.d/{{ item }}' owner='root' group='root' mode='0644'
+  with_items:
+    - 'antivirus.conf'
+    - 'redis.conf'
+    - 'rmilter_headers.conf'
+    - 'spamassassin.conf'
+    - 'worker-controller.inc'
+  notify: reload rspamd
+
+- meta: flush_handlers
+
+- service: name='{{ item }}' enabled=yes state=started
+  with_items:
+    - 'rspamd'
+    - 'rmilter'
+    - 'redis'
+    - 'clamav-daemon'
+    - 'clamav-freshclam'
+
+- cron: hour='3' minute='37' job='/usr/bin/sa-update && /usr/sbin/service rspamd reload' name='sa-update-rspam'
+    
+# todo: check rspamd config
+# todo: check spamassassin plugin
+# todo: redis auth

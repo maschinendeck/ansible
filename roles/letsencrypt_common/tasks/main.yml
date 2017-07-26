@@ -1,0 +1,17 @@
+- apt_repository: repo='deb http://ftp.debian.org/debian jessie-backports main' state=present
+  when: "ansible_distribution == 'Debian' and ansible_distribution_release=='jessie'"
+
+- apt: name='certbot' default_release='jessie-backports' state=present
+  when: "ansible_distribution == 'Debian' and ansible_distribution_release=='jessie'"
+  
+- copy: src='renew-letsencrypt-certs' dest='/usr/local/sbin/renew-letsencrypt-certs' owner='root' group='root' mode='0700'
+
+- file: path='/etc/letsencrypt/renewal.d' owner='root' group='root' mode='0755' state=directory
+  
+- cron:
+    job='/usr/local/sbin/renew-letsencrypt-certs'
+    name='renew-letsencrypt-certs'
+    hour='5'
+    minute='23'
+    weekday='2'
+    state=present

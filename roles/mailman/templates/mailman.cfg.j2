@@ -1,0 +1,65 @@
+# This is the absolute bare minimum base configuration file.  User supplied
+# configurations are pushed onto this.
+
+[mailman]
+# This address is the "site owner" address.  Certain messages which must be
+# delivered to a human, but which can't be delivered to a list owner (e.g. a
+# bounce from a list owner), will be sent to this address.  It should point to
+# a human.
+site_owner: {{ admin_mail }}
+layout: here
+
+[paths.here]
+bin_dir: /opt/mailman/bin
+var_dir: /var/lib/mailman
+queue_dir: /var/spool/mailman
+log_dir: /var/log/mailman
+lock_dir: /var/lock/mailman
+etc_dir: /etc
+#ext_dir: /etc/mailman.d
+pid_file: /var/run/mailman/mailman.pid
+
+#[database]
+#class: mailman.database.postgresql.PostgreSQLDatabase
+#url: postgres://mailman:mailman-db-password@localhost/mailman
+
+[archiver.hyperkitty]
+class: mailman_hyperkitty.Archiver
+enable: yes
+configuration: /etc/mailman-hyperkitty.cfg
+
+[archiver.prototype]
+enable: yes
+
+[webservice]
+# The hostname at which admin web service resources are exposed.
+hostname: localhost
+
+# The port at which the admin web service resources are exposed.
+port: 8001
+
+# Whether or not requests to the web service are secured through SSL.
+use_https: no
+
+# Whether or not to show tracebacks in an HTTP response for a request that
+# raised an exception.
+#show_tracebacks: yes
+
+# The API version number for the current (highest) API.
+#api_version: 3.0
+
+# The administrative username.
+admin_user: {{ mailman.rest_user }}
+
+# The administrative password.
+admin_pass: {{ mailman.rest_password }}
+
+
+[mta]
+incoming: mailman.mta.postfix.LMTP
+outgoing: mailman.mta.deliver.deliver
+lmtp_host: 127.0.0.1
+lmtp_port: 8024
+smtp_host: localhost
+smtp_port: 25
+configuration: python:mailman.config.postfix

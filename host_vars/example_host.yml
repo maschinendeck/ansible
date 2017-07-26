@@ -1,0 +1,37 @@
+ansible_host: 'some_ip_address'
+web_server:
+  - domains:
+      - 'some domain name for rspamd interface'
+    root: '/var/www/blank'
+    mode: plain
+    httpsonly: True
+    settings: |
+      Header set X-Content-Type-Options nosniff
+      Header set X-Frame-Options SAMEORIGIN
+      Header set X-XSS-Protection "1; mode=block"
+      <Location /rspamd/>
+        ProxyPass http://127.0.0.1:11334/
+        ProxyPassReverse http://127.0.0.1:11334/
+      </Location>
+  - domains:
+      - 'some domain name for mailing lists'
+    root: '/var/www/mailman_web/public'
+    mode: passenger
+    user: 'mailman'
+    group: 'mailman'
+    httpsonly: True
+    settings: |
+      PassengerPython /opt/mailman_web/bin/python
+public_hostname: 'hostname of this machine'
+mailname: 'fqdn of this machine'
+rspamd_password: 'some secret'
+mailman:
+  django_secret_key: 'some other secret'
+  domains:
+    - 'same domain name as above for mailing lists'
+  rest_user: 'mailman'
+  rest_password: 'yet another secret'
+  archiver_key: 'and one more secret'
+admin_mail: 'root@maschinendeck.org'
+ldap_host: 'ldaps://some.ldap.host'
+ldap_base: 'dc=ldap,dc=base'

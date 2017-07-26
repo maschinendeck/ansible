@@ -1,0 +1,5 @@
+server_host = {{ ldap_host }}
+search_base = cn=mail,cn=accounts,{{ ldap_base }}
+query_filter = (&(cn=%s)(objectClass=inetDomain))
+result_attribute = cn
+scope = sub

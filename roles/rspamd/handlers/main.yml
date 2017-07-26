@@ -1,0 +1,5 @@
+- name: reload rmilter
+  service: name='rmilter' state=reloaded
+
+- name: reload rspamd
+  service: name='rspamd' state=reloaded

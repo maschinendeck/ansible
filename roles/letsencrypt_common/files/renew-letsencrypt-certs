@@ -1,0 +1,25 @@
+#!/bin/bash -e
+
+/usr/bin/letsencrypt renew
+
+set +e
+
+if [ -d /etc/nginx ]
+then
+/usr/sbin/service nginx reload
+fi
+
+if [ -d /etc/apache2 ]
+then
+/usr/sbin/service apache2 reload
+fi
+
+for script in /etc/letsencrypt/renewal.d/*
+do
+    if [ -x ${script} ]
+    then
+        ${script}
+    fi
+done
+
+set -e

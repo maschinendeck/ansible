@@ -1,0 +1,48 @@
+<html>
+<head>
+<title>- ooops! -</title>
+<style>
+ body {
+    background:#0000aa;
+    color:#ffffff;
+    font-family:monospace;
+    font-size:12pt;
+    text-align:center;
+    margin:100px;
+}
+
+.neg {
+    background:#fff;
+    color:#0000aa;
+    padding:2px 8px;
+    font-weight:bold;
+}
+
+p {
+    margin:30px 100px;
+    text-align:center;
+}
+
+a,a:hover {
+    color:inherit;
+    font:inherit;
+}
+
+.footer {
+    text-align:center;
+    margin-top:50px;
+}
+</style>
+</head>
+<body>
+<span class="neg">ERROR NO VHOST</span>
+<p>
+    This virtual host is missing or was never created. You can wait and<br>
+    see if it becomes available again, or you can restart the internet.
+</p>
+<div class="footer">
+{{ inventory_hostname }}
+</div>
+
+</body>
+</html>

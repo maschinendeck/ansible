@@ -1,0 +1,51 @@
+- apt: name='{{ item }}' state=present
+  with_items:
+    - dovecot-core
+    - dovecot-imapd
+    - dovecot-managesieved
+    - dovecot-sieve
+    - dovecot-antispam
+    - dovecot-gssapi
+    - dovecot-ldap
+    - dovecot-lmtpd
+    - python-ldap
+
+- template: src='{{ item }}.j2' dest='/etc/dovecot/{{ item }}' owner='root' group='root' mode='0644'
+  with_items:
+    - 'conf.d/auth-ldap-ipa.conf.ext'
+    - 'conf.d/auth-checkpassword-ipa.conf.ext'
+    - 'conf.d/10-auth.conf'
+    - 'conf.d/10-director.conf'
+    - 'conf.d/10-logging.conf'
+    - 'conf.d/10-mail.conf'
+    - 'conf.d/10-master.conf'
+    - 'conf.d/10-ssl.conf'
+    - 'conf.d/10-tcpwrapper.conf'
+    - 'conf.d/15-lda.conf'
+    - 'conf.d/15-mailboxes.conf'
+    - 'conf.d/20-imap.conf'
+    - 'conf.d/20-lmtp.conf'
+    - 'conf.d/20-managesieve.conf'
+    - 'conf.d/90-acl.conf'
+    - 'conf.d/90-plugin.conf'
+    - 'conf.d/90-quota.conf'
+    - 'conf.d/90-sieve.conf'
+  notify: restart dovecot
+
+
+- template: src='{{ item }}.j2' dest='/etc/dovecot/{{ item }}' owner='root' group='root' mode='0600'
+  with_items:
+    - 'dovecot-ldap-ipa-userdb.conf.ext'
+  notify: restart dovecot
+
+- template: src='checkpassword.py.j2' dest='/usr/local/bin/checkpassword' owner='root' group='root' mode='0755'
+  
+- file: path='/etc/dovecot/private' owner='root' group='root' mode='700' state=directory
+
+- group: name='vmail' system='yes' state=present
+  notify: restart dovecot
+  
+- user: name='vmail' group='vmail' home='/home/vmail' shell='/bin/sh' system='yes' createhome='no' state=present
+  notify: restart dovecot
+
+- file: path='/home/vmail' owner='vmail' group='vmail' mode='700' state=directory

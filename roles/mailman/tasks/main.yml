@@ -1,0 +1,128 @@
+#- name: enable deadsnake repository for python 3.4 (needed for mailman 3.0)
+#  apt_repository: repo='ppa:fkrull/deadsnakes' state=present
+#
+#- name: install python 3.4
+#  apt: name='python3.4' state=present
+#
+#- name: install mailman
+#  pip: name='mailman' virtualenv='{{ mailman_dir }}' virtualenv_python='python3.4' version='3.0.3' state=present
+
+- name: install python3 stuff
+  apt: name='{{ item }}' state=present
+  with_items:
+    - python3-virtualenv
+    - python3-pip
+    - virtualenv
+
+- name: install mailman
+  pip: name='mailman' virtualenv='{{ mailman_dir }}' virtualenv_python='python3.5' version='3.1' state=present
+
+- name: install mailman-hyperkitty backend
+  pip: name='mailman-hyperkitty' virtualenv='{{ mailman_dir }}' virtualenv_python='python3.5' version='1.1.0' state=present
+  
+- template: src='mailman3.service.j2' dest='/lib/systemd/system/mailman3.service' owner='root' group='root' mode='0644'
+
+- group: name='mailman' system=yes state=present
+
+- user: name='mailman' group='mailman' system=yes home='/var/lib/mailman' shell='/bin/false' state=present
+
+- file: path='{{ item }}' owner='mailman' group='mailman' mode='2775' state=directory
+  with_items:
+    - '/var/run/mailman'
+    - '/var/lib/mailman'
+    - '/var/spool/mailman'
+    - '/var/lock/mailman'
+    - '/var/log/mailman'
+
+- template: src='mailman.cfg.j2' dest='/etc/mailman.cfg' owner='root' group='mailman' mode='0640'
+  notify: restart mailman
+
+- template: src='mailman-hyperkitty.cfg.j2' dest='/etc/mailman-hyperkitty.cfg' owner='root' group='mailman' mode='0640'
+  notify: restart mailman
+
+- systemd: name='mailman3' daemon_reload=yes enabled=yes state=started
+  
+- meta: flush_handlers
+
+- systemd: name='mailman3' enabled=yes state=started
+
+- name: install python 2.7 headers
+  apt: name='python2.7-dev' state=present
+#- name: install python 3.5 headers
+#  apt: name='python3.5-dev' state=present
+  
+- name: install postorius web gui
+  pip: name='postorius' virtualenv='{{ mailman_web_dir }}' virtualenv_python='python2.7' version='1.1.0' state=present
+#- name: install postorius web gui
+#  pip: name='postorius' virtualenv='{{ mailman_web_dir }}' virtualenv_python='python3.5' version='1.1.0' state=present
+
+- name: install hyperkitty web gui
+  pip: name='hyperkitty' virtualenv='{{ mailman_web_dir }}' virtualenv_python='python2.7' version='1.1.0' state=present
+#- name: install hyperkitty web gui
+#  pip: name='hyperkitty' virtualenv='{{ mailman_web_dir }}' virtualenv_python='python3.5' version='1.1.0' state=present
+
+- apt: name='{{ item }}' state=present
+  with_items:
+    - 'libmysqlclient-dev'
+    - 'pysassc'
+
+- file: path='/usr/bin/sassc' src='/usr/bin/pysassc' state=link
+  
+- name: install libs
+  pip: name='{{ item }}' virtualenv='{{ mailman_web_dir }}' virtualenv_python='python2.7' state=present
+  with_items:
+    - 'django-mailman3'
+  #  - 'mysqlclient'
+  
+- name: mailman web root
+  file: path='/var/www/mailman_web' owner='root' group='mailman' mode='0755' state=directory
+
+- name: mailman web log
+  file: path='/var/www/mailman_web/logs' owner='root' group='mailman' mode='0775' state=directory
+  
+- name: mailman web public root
+  file: path='/var/www/mailman_web/public' owner='root' group='mailman' mode='0755' state=directory
+
+- name: mailman web tmp dir
+  file: path='/var/www/mailman_web/tmp' owner='root' group='mailman' mode='0755' state=directory
+  
+- name: django project settings
+  template: src='web/settings.py.j2' dest='/var/www/mailman_web/settings.py' owner='root' group='mailman' mode='0640'
+  
+- name: django project urls
+  template: src='web/urls.py.j2' dest='/var/www/mailman_web/urls.py' owner='root' group='mailman' mode='0644'
+
+- name: django project wsgi
+  template: src='web/wsgi.py.j2' dest='/var/www/mailman_web/wsgi.py' owner='root' group='mailman' mode='0644'
+
+- name: django project settingswsgi
+  template: src='web/passenger_wsgi.py.j2' dest='/var/www/mailman_web/passenger_wsgi.py' owner='mailman' group='mailman' mode='0644'
+
+- name: django project init
+  copy: src='__init__.py' dest='/var/www/mailman_web/__init__.py' owner='root' group='mailman' mode='0644'
+  
+- name: django project manage.py
+  template: src='web/manage.py.j2' dest='/var/www/mailman_web/manage.py' owner='root' group='mailman' mode='0755'
+
+- name: django my.cnf
+  template: src='web/my.cnf.j2' dest='/var/www/mailman_web/my.cnf' owner='root' group='mailman' mode='0640'
+  when: mailman.mysql_host | default(False)
+
+#- mysql_db: name='{{ mailman.mysql_db }}' state=present
+#  delegate_to: '{{ mailman.mysql_host }}'
+  
+#- mysql_user: name='{{ mailman.mysql_user }}' password='{{ mailman.mysql_password }}' host='{{ ansible_host }}' priv='{{ mailman.mysql_db }}.*:ALL' state=present
+#  delegate_to: '{{ mailman.mysql_host }}'
+
+- django_manage: app_path='/var/www/mailman_web' virtualenv='{{ mailman_web_dir }}' command='migrate'
+  become: yes
+  become_user: mailman
+
+- django_manage: app_path='/var/www/mailman_web' virtualenv='{{ mailman_web_dir }}' command='collectstatic'
+  become: yes
+  become_user: mailman
+
+  
+# todo: sqlite is the way to go (currently)
+# todo: cronjobs?
+# todo: hyperkitty everything

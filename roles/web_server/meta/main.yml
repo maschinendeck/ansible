@@ -1,0 +1,3 @@
+dependencies:
+  - role: letsencrypt_common
+  - role: passenger_common

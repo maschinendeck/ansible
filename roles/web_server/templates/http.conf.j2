@@ -1,0 +1,9 @@
+{% set is_https=False %}
+<VirtualHost *:80>
+
+  ErrorLog "/var/log/apache2/http-{{ item.domains[0] }}-error.log"
+  CustomLog "/var/log/apache2/http-{{ item.domains[0] }}-access.log" {{ item.log_format | default('combined') }}
+
+  {% include "http-body.j2" %}
+  
+</VirtualHost>

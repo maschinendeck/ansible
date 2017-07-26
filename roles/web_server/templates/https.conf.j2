@@ -1,0 +1,15 @@
+{% set is_https=True %}
+<VirtualHost *:443>
+  
+  ErrorLog "/var/log/apache2/https-{{ item.domains[0] }}-error.log"
+  CustomLog "/var/log/apache2/https-{{ item.domains[0] }}-access.log" {{ item.log_format | default('combined') }}
+
+  SSLEngine On
+  SSLCertificateFile /etc/letsencrypt/live/{{ item.domains.0 }}/cert.pem
+  SSLCertificateKeyFile /etc/letsencrypt/live/{{ item.domains.0 }}/privkey.pem
+  SSLCertificateChainFile /etc/letsencrypt/live/{{ item.domains.0 }}/chain.pem
+
+  {% set is_https=True %}
+  {% include "http-body.j2" %}
+  
+</VirtualHost>
